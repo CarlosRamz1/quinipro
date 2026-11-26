@@ -788,10 +788,12 @@ async function vistaSuper() {
   if (!S.yo.es_superadmin) return location.replace('#/');
   const [codigos, revisar, grupos] = await Promise.all([api('/super/codigos'), api('/super/revisar'), api('/super/grupos')]);
   pintar(cabecera('Súper admin', 'Solo tú ves esta pantalla.', { avatar: false }) + `<div class="cuerpo">
-    <section class="tarjeta"><b>Permitir que alguien cree un grupo</b>
-      <div class="campo"><label for="nota">¿Para quién es? (nota)</label><input id="nota" maxlength="80" placeholder="Ej. Grupo de mi hermano"></div>
-      <button class="boton" type="button" data-acc="codigo">Generar enlace para crear grupo</button>
-      <span style="font-size:12px;color:var(--gris)">Cada enlace sirve una sola vez.</span></section>
+    <section class="tarjeta"><b style="font-size:16px">Que otra persona cree su propio grupo</b>
+      <span style="font-size:13px;color:var(--suave);line-height:1.5">Genera un enlace para que alguien arme un grupo <b>aparte</b> (por ejemplo, su quiniela con sus amigos). Esa persona será la dueña de su grupo. Cada enlace sirve una sola vez.</span>
+      <div class="campo"><label for="nota">Nota para recordar a quién se lo diste</label><input id="nota" maxlength="80" placeholder="Ej. Grupo de mi hermano"></div>
+      <button class="boton" type="button" data-acc="codigo">Generar y copiar enlace</button></section>
+    <div class="aviso verde" style="flex-direction:column;align-items:flex-start;gap:4px"><b style="font-size:14px">¿Quieres dar permisos dentro de tu grupo?</b>
+      <span style="font-size:13px;color:var(--suave);line-height:1.5">Eso no se hace aquí: ve a <b>Admin → Miembros y roles</b> y toca “Hacer co-admin” en la persona (primero debe entrar con tu invitación).</span></div>
     <span class="titulo-sec">Marcadores por revisar (${revisar.length})</span>
     ${revisar.map((p) => `<section class="tarjeta" data-pid="${p.id}"><div class="fila-meta"><span>${esc(p.competicion_nombre)}</span><span>${cuando(p.inicio_utc)}</span></div>
       <b>${esc(p.local)} vs ${esc(p.visitante)}</b><span style="font-size:12px;color:var(--gris)">Marcador final ${p.goles_local ?? '?'}-${p.goles_visitante ?? '?'} (con prórroga). Captura el de los 90'.</span>
@@ -802,9 +804,10 @@ async function vistaSuper() {
     <span class="titulo-sec">Grupos (${grupos.length})</span>
     <ul class="lista">${grupos.map((g) => `<li style="padding:10px"><span class="nom"><a href="#/g/${g.id}/admin" style="color:var(--texto)">${esc(g.nombre)}</a><br><small style="color:var(--gris)">${g.miembros} miembros · dueño: ${esc(g.dueno || '—')}</small></span>
       <button class="boton sec" type="button" data-borrar-g="${g.id}" style="width:auto;min-height:40px;font-size:13px;color:var(--baja)">Borrar</button></li>`).join('') || '<li><span class="nom" style="color:var(--gris)">Sin grupos</span></li>'}</ul>
-    <span class="titulo-sec">Enlaces para crear grupo</span>
+    <span class="titulo-sec">Enlaces que has generado</span>
     <ul class="lista">${codigos.map((c) => `<li style="padding:10px"><span class="nom">${esc(c.nota || 'Sin nota')}<br><small style="color:var(--gris)">${c.usado_por ? 'Usado por ' + esc(c.usado_por) : 'Sin usar'}</small></span>
-      ${c.usado_por ? '' : `<button class="boton sec" type="button" data-copiar="${esc(c.codigo)}" style="width:auto;min-height:40px;font-size:13px">Copiar</button>`}</li>`).join('') || '<li><span class="nom" style="color:var(--gris)">Aún no generas ninguno</span></li>'}</ul></div>`);
+      ${c.usado_por ? '' : `<button class="boton sec" type="button" data-copiar="${esc(c.codigo)}" style="width:auto;min-height:40px;font-size:13px">Copiar</button>
+        <button class="boton sec" type="button" data-cancelar="${esc(c.codigo)}" style="width:auto;min-height:40px;font-size:13px;color:var(--baja)">Cancelar</button>`}</li>`).join('') || '<li><span class="nom" style="color:var(--gris)">Aún no generas ninguno</span></li>'}</ul></div>`);
   $app.onclick = async (e) => {
     const b = e.target.closest('button');
     if (!b) return;
@@ -813,6 +816,10 @@ async function vistaSuper() {
         const r = await api('/super/codigos', { metodo: 'POST', datos: { nota: document.getElementById('nota').value || null } });
         await copiar(`${location.origin}/#/crear/${r.codigo}`, 'Crea tu grupo en QuiniPro');
         vistaSuper();
+      } else if (b.dataset.cancelar) {
+        if (!confirmado(b)) return;
+        await api(`/super/codigos/${b.dataset.cancelar}`, { metodo: 'DELETE' });
+        aviso('Enlace cancelado: ya no sirve.'); vistaSuper();
       } else if (b.dataset.borrarG) {
         if (!confirmado(b)) return;
         await api(`/grupos/${b.dataset.borrarG}`, { metodo: 'DELETE' });

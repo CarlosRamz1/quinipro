@@ -158,6 +158,18 @@ class TestFlujoCompleto(unittest.TestCase):
         self.assertEqual(self.conn.execute("SELECT COUNT(*) FROM pronosticos").fetchone()[0], 0)
         self.assertEqual(self.c.get("/api/yo", headers=self.h(beto)).json()["grupos"], [])
 
+    def test_enlaces_de_creacion(self):
+        gid, qid, dueno = self._grupo_con_quiniela()
+        sin_usar = admin.crear_codigo(self.conn, "para nadie")
+        cods = self.c.get("/api/super/codigos", headers=self.h(self.sup_tok)).json()
+        self.assertEqual(len(cods), 2)
+        # cancelar uno sin usar
+        self.assertEqual(self.c.delete(f"/api/super/codigos/{sin_usar}", headers=self.h(self.sup_tok)).status_code, 200)
+        # al borrar el grupo, su enlace de creación desaparece
+        self.c.delete(f"/api/grupos/{gid}", headers=self.h(self.sup_tok))
+        self.assertEqual(self.c.get("/api/super/codigos", headers=self.h(self.sup_tok)).json(), [])
+        self.assertEqual(self.conn.execute("SELECT COUNT(*) FROM codigos_grupo").fetchone()[0], 0)
+
     def test_sin_sesion(self):
         self.assertEqual(self.c.get("/api/yo").status_code, 401)
         self.assertEqual(self.c.get("/api/yo", headers=self.h("falso")).status_code, 401)

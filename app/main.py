@@ -351,6 +351,10 @@ def _rutas(app: FastAPI):
             raise HTTPException(404, "Ese grupo no existe.")
         if _rol(conn, gid, u) != "dueno" and not u["es_superadmin"]:
             raise HTTPException(403, "Solo el dueño del grupo o el administrador de QuiniPro pueden borrarlo.")
+        # El enlace con el que se creó el grupo también desaparece (quedó anotado en la bitácora al crearlo).
+        for r in conn.execute("SELECT detalle FROM bitacora WHERE grupo_id=? AND accion='crear_grupo'", (gid,)).fetchall():
+            if r[0]:
+                conn.execute("DELETE FROM codigos_grupo WHERE codigo=?", (r[0].strip().upper(),))
         conn.execute("DELETE FROM grupos WHERE id=?", (gid,))  # borra en cascada miembros, quinielas, picks y tablas
         _bitacora(conn, None, u["id"], "borrar_grupo", gid, g["nombre"])
         return {"ok": True}
@@ -619,9 +623,21 @@ def _rutas(app: FastAPI):
     @app.get("/api/super/codigos")
     def listar_codigos(conn=Depends(db), u=Depends(usuario)):
         _exigir_super(u)
+        # Los enlaces usados solo se muestran mientras exista un grupo de esa persona
+        # (así no quedan enlaces de grupos que ya se borraron).
         return [dict(r) for r in conn.execute(
             """SELECT c.codigo, c.nota, c.creado_utc, c.usado_utc, us.nombre AS usado_por FROM codigos_grupo c
-               LEFT JOIN usuarios us ON us.id=c.usado_por ORDER BY c.creado_utc DESC""")]
+               LEFT JOIN usuarios us ON us.id=c.usado_por
+               WHERE c.usado_por IS NULL OR EXISTS (SELECT 1 FROM grupos g WHERE g.creado_por=c.usado_por)
+               ORDER BY c.creado_utc DESC""")]
+
+    @app.delete("/api/super/codigos/{codigo}")
+    def cancelar_codigo(codigo: str, conn=Depends(db), u=Depends(usuario)):
+        _exigir_super(u)
+        cur = conn.execute("DELETE FROM codigos_grupo WHERE codigo=? AND usado_por IS NULL", (codigo.strip().upper(),))
+        if cur.rowcount == 0:
+            raise HTTPException(404, "Ese enlace no existe o ya se usó.")
+        return {"ok": True}
 
     @app.get("/api/super/revisar")
     def por_revisar(conn=Depends(db), u=Depends(usuario)):
