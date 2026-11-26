@@ -23,7 +23,7 @@ y resultados que llegan solos.
   `C:\Users\carl-\OneDrive\Documentos\AUTOMATA\QUINIELA`.
 - **Diseño de referencia:** lienzo de Claude Design "Quiniela · Diseño de pantallas"
   (https://claude.ai/artifact/C6WTV2xMZxZMv7gjBo2puC): Entrada, Jornada, Partido en vivo, Tabla, Admin y logo.
-- **Pruebas:** 26 automáticas (`python -m unittest -v`), incluyen datos reales de ESPN del 26/11/2026.
+- **Pruebas:** 27 automáticas (`python -m unittest -v`), incluyen datos reales de ESPN del 26/11/2026.
 
 ### Funciona hoy
 - Entrada por **enlace de invitación** + nombre (sin contraseñas; sesión con token, en BD solo el hash).
@@ -33,10 +33,13 @@ y resultados que llegan solos.
 - **Picks revelados** solo después del pitazo (ni admins los ven antes; lo garantiza el servidor).
 - **Tabla en vivo** (Server-Sent Events): podio, flechas sube/baja, buscador, tu lugar fijo abajo.
 - **Inicio:** todas las quinielas activas de todos tus grupos (varias a la vez), con picks faltantes.
-- **Admin del grupo:** armar quiniela (varias ligas, estrella = estelar), pagos con filtros y "marcar todos",
+- **Admin del grupo:** armar quiniela (varias ligas, estrella = estelar; "Armar siguiente" crea otra en el
+  mismo grupo sin cerrar la actual), pagos con filtros y "marcar todos",
   copiar/cambiar invitación, miembros y roles, elegir qué quiniela administrar, zona de borrado.
-- **Súper admin:** enlaces de un solo uso para que alguien cree grupo, corregir marcadores "por revisar",
-  ver y borrar cualquier grupo.
+- **Súper admin:** enlaces de un solo uso para que otra persona cree su propio grupo (con nota de a quién se
+  dio; los no usados se pueden cancelar; al borrar un grupo se borra también su enlace), corregir marcadores
+  "por revisar", ver y borrar cualquier grupo. Los permisos dentro de un grupo (co-admin) se dan en
+  Admin → Miembros y roles, no en el panel de súper admin.
 - **Instalar en mi celular:** detecta Android / iPhone Safari / iPhone en otro navegador / computadora y
   muestra pasos con dibujitos; tarjeta en la Jornada que se puede posponer 7 días.
 - **Barra de navegación flotante** tipo cápsula con efecto vidrio; la sección activa es una píldora lima.
