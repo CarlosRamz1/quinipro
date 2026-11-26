@@ -29,7 +29,7 @@ class TestFlujoCompleto(unittest.TestCase):
         self.app = crear_app(self.ruta)
         self.c = TestClient(self.app)
         self.conn = conectar(self.ruta)
-        self.sup_id, self.sup_tok = admin.crear_super(self.conn, "Carlos")
+        self.sup_id, self.sup_tok = admin.crear_super(self.conn, "Admin")
         self.pids = [guardar_partido(self.conn, _partido(i, 24 + i))[0] for i in range(4)]
         self.conn.commit()
 

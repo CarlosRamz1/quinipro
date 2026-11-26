@@ -5,7 +5,7 @@
 
 ## 1. Qué es y por qué
 
-App de **quinielas de fútbol** para grupos (empezó para la oficina de Carlos; debe soportar muchos grupos y
+App de **quinielas de fútbol** para grupos (empezó para una oficina; debe soportar muchos grupos y
 cientos de personas). Reemplaza los papelitos: picks en el celular, cierre automático al pitazo, tabla en vivo
 y resultados que llegan solos.
 
@@ -14,11 +14,11 @@ y resultados que llegan solos.
 - **No se cobra ni se maneja dinero.** La app solo muestra quién pagó (lo marca el admin). Decisión firme:
   cobrar comisión del pozo implicaría permisos de SEGOB y obligaciones antilavado.
 - **Objetivo de calidad:** diseño y experiencia "para ganar un concurso de UI/UX". Moderno, sencillo, oscuro.
-- **Dueño:** Carlos Ramírez (súper admin). Empresa paraguas: Automata (automataia.net).
+- **Dueño del proyecto:** el súper admin. Empresa paraguas: Automata (automataia.net).
 
 ## 2. Estado actual (en producción)
 
-- **URL:** https://quinipro.automataia.net (PWA instalable; Carlos ya la tiene instalada).
+- **URL:** https://quinipro.automataia.net (PWA instalable; el dueño ya la tiene instalada).
 - **Código:** https://github.com/CarlosRamz1/quinipro (rama `main`) y copia local en
   `C:\Users\carl-\OneDrive\Documentos\AUTOMATA\QUINIELA`.
 - **Diseño de referencia:** lienzo de Claude Design "Quiniela · Diseño de pantallas"
@@ -46,7 +46,7 @@ y resultados que llegan solos.
 - L/E/V, 1 punto por acierto, cuenta el **resultado a 90'** (prórroga y penales no).
 - Desempate: marcador exacto del estelar → menor distancia de goles → comparten lugar.
 - Pospuesto/suspendido/cancelado = **anulado para todos**.
-- Roles: **súper admin** (Carlos; único que corrige marcadores, porque los partidos son compartidos entre
+- Roles: **súper admin** (único que corrige marcadores, porque los partidos son compartidos entre
   grupos, y único que autoriza crear grupos) · **dueño** (quien crea el grupo) · **co-admin** (lo nombra el
   dueño; no borra ni cambia roles) · **participante**. Un grupo nunca se queda sin dueño.
 
@@ -76,7 +76,7 @@ automática en `/api/docs`.
 Producción corre en un VPS con Docker (proyecto `quinipro`: web, robot y respaldo diario) detrás de un proxy
 con HTTPS automático. El código se descarga de este repositorio por commit al arrancar los contenedores.
 Los datos del servidor, credenciales y el procedimiento de despliegue están en el **documento privado de
-contexto** (proyecto "Quiniela" de Claude y carpeta local de Carlos), no en este repositorio.
+contexto** (proyecto "Quiniela" de Claude y carpeta local del dueño), no en este repositorio.
 
 ### Local (Windows)
 `iniciar.bat` (instala, arranca robot + app, abre localhost:8000) y `admin.bat super|codigo|enlace|demo`.
@@ -93,7 +93,7 @@ La base local va en `%LOCALAPPDATA%\QuiniPro\quiniela.db` (fuera de OneDrive a p
 - SQLite dentro de OneDrive da errores de disco: usar `QUINIELA_DB` fuera de OneDrive.
 - El Docker Manager de Hostinger **no construye imágenes** desde `build:`; por eso el compose usa una imagen
   base y baja el código al arrancar.
-- Al copiar archivos a la laptop de Carlos, verificar con md5 (una copia llegó vieja una vez).
+- Al copiar archivos a la laptop del dueño, verificar con md5 (una copia llegó vieja una vez).
 - Probar la UI con Playwright + Chrome en el contenedor; las fuentes y escudos externos no cargan ahí (normal).
 
 ## 7. Diseño (sistema visual)
@@ -108,8 +108,8 @@ La base local va en `%LOCALAPPDATA%\QuiniPro\quiniela.db` (fuera de OneDrive a p
 
 1. **Notificaciones push** ("cierra en 15 min", "caíste al 6°"); en iPhone requiere app instalada e iOS 16.4+.
 2. **Chat de pique ("trash talk")** por grupo con avisos automáticos de cambios en la tabla. Idea que venía de
-   una conversación previa con Gemini; Carlos pidió dejarlo para después.
+   una conversación previa con Gemini; se dejó para después.
 3. Reglas opcionales por quiniela: comodín x2, marcador exacto (3/1), dobles estilo Progol.
 4. **APK de Android** (Trusted Web Activity) con Android Studio; opcional, la PWA ya se instala.
 5. Fútbol americano (ESPN tiene NFL con el mismo formato; en NFL casi no hay empates → solo L/V).
-6. Logo definitivo (Carlos lo dejó con el provisional QP en Kanit itálica).
+6. Logo definitivo (por ahora se usa el provisional QP en Kanit itálica).

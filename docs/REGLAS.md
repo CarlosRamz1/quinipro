@@ -32,7 +32,7 @@
 - Partidos que terminaron en prórroga sin desglose de 90' se marcan **"por revisar"** para que el súper admin confirme.
 
 ## Permisos
-- **Súper admin (Carlos, dueño de la plataforma):** se configura en el servidor. Único que puede corregir marcadores (los partidos son compartidos entre grupos), moderar grupos y **autorizar quién puede crear grupos** (creación cerrada, con código que él entrega).
+- **Súper admin (dueño de la plataforma):** se configura en el servidor. Único que puede corregir marcadores (los partidos son compartidos entre grupos), moderar grupos y **autorizar quién puede crear grupos** (creación cerrada, con código que él entrega).
 - **Dueño del grupo:** quien lo crea (con autorización). Arma quinielas, elige el estelar, invita/saca gente, marca pagos, nombra co-admins y puede transferir el grupo.
 - **Co-admin:** lo nombra el dueño. Mismos permisos que el dueño excepto quitarle permisos al dueño o borrar el grupo.
 - **Participante:** llena picks y ve la tabla.

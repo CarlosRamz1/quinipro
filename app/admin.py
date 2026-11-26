@@ -1,6 +1,6 @@
 """Comandos de administración (se corren en el servidor, nunca desde la app).
 
-  python -m app.admin super "Carlos Ramírez"     crea tu usuario súper admin y te da tu enlace de acceso
+  python -m app.admin super "Tu Nombre"     crea tu usuario súper admin y te da tu enlace de acceso
   python -m app.admin enlace 1                   genera un enlace de acceso nuevo para el usuario 1
   python -m app.admin codigo "Para el grupo de X" crea un código para que alguien pueda crear su grupo
   python -m app.admin demo                       grupo de prueba con partidos reales próximos

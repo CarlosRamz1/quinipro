@@ -1,6 +1,6 @@
 @echo off
 rem Comandos de administración con la misma base de datos que usa iniciar.bat
-rem   admin.bat super "Carlos Ramírez"
+rem   admin.bat super "Tu Nombre"
 rem   admin.bat codigo "Grupo de mi hermano"
 rem   admin.bat enlace 1
 rem   admin.bat demo

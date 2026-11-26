@@ -9,7 +9,7 @@ tabla en vivo y resultados automáticos (ESPN, respaldo API-Football). La app **
    y la app, y abre `http://localhost:8000`.
 2. La primera vez, en otra terminal en esta carpeta:
    ```
-   admin.bat super "Carlos Ramírez"
+   admin.bat super "Tu Nombre"
    ```
    Te da **tu enlace personal de súper admin**. Ábrelo en el navegador (y guárdalo: es tu llave).
 3. Para tener algo que jugar de inmediato:
