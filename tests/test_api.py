@@ -140,6 +140,24 @@ class TestFlujoCompleto(unittest.TestCase):
                         json={"nombre": "Otra", "partidos": [viejo, self.pids[2]], "estelar": self.pids[2]})
         self.assertEqual(r.status_code, 422)
 
+    def test_varias_quinielas_y_borrar(self):
+        gid, qid, dueno = self._grupo_con_quiniela()
+        r = self.c.post(f"/api/grupos/{gid}/quinielas", headers=self.h(dueno),
+                        json={"nombre": "Champions", "partidos": self.pids[2:], "estelar": self.pids[2]})
+        q2 = r.json()["id"]
+        g = self.c.get("/api/yo", headers=self.h(dueno)).json()["grupos"][0]
+        self.assertEqual({q["id"] for q in g["quinielas"]}, {qid, q2})  # las dos activas a la vez
+        inv = self.c.get(f"/api/grupos/{gid}", headers=self.h(dueno)).json()["codigo_invitacion"]
+        beto = self.c.post("/api/unirse", json={"codigo": inv, "nombre": "Beto"}).json()["token"]
+        self.assertEqual(self.c.delete(f"/api/quinielas/{q2}", headers=self.h(beto)).status_code, 403)
+        self.assertEqual(self.c.delete(f"/api/quinielas/{q2}", headers=self.h(dueno)).status_code, 200)
+        self.assertEqual(self.c.delete(f"/api/grupos/{gid}", headers=self.h(beto)).status_code, 403)
+        # El súper admin puede borrar cualquier grupo; se va todo en cascada
+        self.assertEqual(self.c.delete(f"/api/grupos/{gid}", headers=self.h(self.sup_tok)).status_code, 200)
+        self.assertEqual(self.conn.execute("SELECT COUNT(*) FROM quinielas").fetchone()[0], 0)
+        self.assertEqual(self.conn.execute("SELECT COUNT(*) FROM pronosticos").fetchone()[0], 0)
+        self.assertEqual(self.c.get("/api/yo", headers=self.h(beto)).json()["grupos"], [])
+
     def test_sin_sesion(self):
         self.assertEqual(self.c.get("/api/yo").status_code, 401)
         self.assertEqual(self.c.get("/api/yo", headers=self.h("falso")).status_code, 401)

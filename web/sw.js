@@ -1,6 +1,6 @@
 // Service worker de QuiniPro: la app abre aunque la señal esté floja.
 // La API nunca se guarda en caché (los picks y marcadores siempre van al servidor).
-const VERSION = 'quinipro-v2';
+const VERSION = 'quinipro-v3';
 const BASE = ['/', '/index.html', '/estilos.css', '/app.js', '/manifest.webmanifest',
   '/iconos/icono-192.png', '/iconos/icono-512.png', '/iconos/apple-180.png', '/iconos/favicon-32.png'];
 

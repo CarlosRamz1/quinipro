@@ -218,10 +218,17 @@ def _rutas(app: FastAPI):
         grupos = []
         for g in conn.execute("""SELECT g.id, g.nombre, m.rol FROM miembros m JOIN grupos g ON g.id=m.grupo_id
                                  WHERE m.usuario_id=? ORDER BY m.unido_utc""", (u["id"],)):
-            q = conn.execute("""SELECT id, nombre, estado FROM quinielas WHERE grupo_id=?
-                                ORDER BY (estado='cerrada'), id DESC LIMIT 1""", (g["id"],)).fetchone()
+            # Todas las quinielas activas del grupo (puede haber varias a la vez) y la última terminada.
+            qs = [dict(r) for r in conn.execute(
+                """SELECT q.id, q.nombre, q.estado,
+                          (SELECT COUNT(*) FROM quiniela_partidos qp WHERE qp.quiniela_id=q.id) AS partidos,
+                          (SELECT COUNT(*) FROM pronosticos pr WHERE pr.quiniela_id=q.id AND pr.usuario_id=?) AS mis_picks
+                   FROM quinielas q WHERE q.grupo_id=? ORDER BY (q.estado='cerrada'), q.id DESC""", (u["id"], g["id"]))]
+            activas = [q for q in qs if q["estado"] != "cerrada"]
+            terminada = next((q for q in qs if q["estado"] == "cerrada"), None)
             grupos.append({"id": g["id"], "nombre": g["nombre"], "rol": g["rol"],
-                           "quiniela_actual": dict(q) if q else None})
+                           "quinielas": activas + ([terminada] if terminada else []),
+                           "quiniela_actual": qs[0] if qs else None})
         return {"usuario": {"id": u["id"], "nombre": u["nombre"], "es_superadmin": bool(u["es_superadmin"])},
                 "grupos": grupos}
 
@@ -337,6 +344,17 @@ def _rutas(app: FastAPI):
         _bitacora(conn, gid, u["id"], "salir", u["id"])
         return {"ok": True}
 
+    @app.delete("/api/grupos/{gid}")
+    def borrar_grupo(gid: int, conn=Depends(db), u=Depends(usuario)):
+        g = conn.execute("SELECT nombre FROM grupos WHERE id=?", (gid,)).fetchone()
+        if not g:
+            raise HTTPException(404, "Ese grupo no existe.")
+        if _rol(conn, gid, u) != "dueno" and not u["es_superadmin"]:
+            raise HTTPException(403, "Solo el dueño del grupo o el administrador de QuiniPro pueden borrarlo.")
+        conn.execute("DELETE FROM grupos WHERE id=?", (gid,))  # borra en cascada miembros, quinielas, picks y tablas
+        _bitacora(conn, None, u["id"], "borrar_grupo", gid, g["nombre"])
+        return {"ok": True}
+
     @app.post("/api/grupos/{gid}/invitacion")
     def nueva_invitacion(gid: int, conn=Depends(db), u=Depends(usuario)):
         _exigir_admin(conn, gid, u)
@@ -423,6 +441,15 @@ def _rutas(app: FastAPI):
                 "mi_desempate": dict(des) if des else None,
                 "desempate_editable": bool(estelar and estelar["editable"]),
                 "pagado": bool(part and part[0]), "ahora_utc": a_iso(ahora)}
+
+    @app.delete("/api/quinielas/{qid}")
+    def borrar_quiniela(qid: int, conn=Depends(db), u=Depends(usuario)):
+        q = _quiniela(conn, qid)
+        if _rol(conn, q["grupo_id"], u) != "dueno" and not u["es_superadmin"]:
+            raise HTTPException(403, "Solo el dueño del grupo puede borrar quinielas.")
+        conn.execute("DELETE FROM quinielas WHERE id=?", (qid,))
+        _bitacora(conn, q["grupo_id"], u["id"], "borrar_quiniela", qid, q["nombre"])
+        return {"ok": True}
 
     @app.put("/api/quinielas/{qid}/picks")
     def guardar_pick(qid: int, datos: Pick, conn=Depends(db), u=Depends(usuario)):

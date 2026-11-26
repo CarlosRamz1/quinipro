@@ -114,6 +114,7 @@ function pasos(lista) {
 // ------------------------------------------------------------------ íconos
 
 const IC = {
+  inicio: '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 11l9-7 9 7v9a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/></svg>',
   jornada: '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><rect x="4" y="3" width="16" height="18" rx="3"/><path d="M8 8h8M8 12h8M8 16h5"/></svg>',
   tabla: '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 20V10M12 20V4M18 20v-7"/></svg>',
   admin: '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M4.9 19.1L7 17M17 7l2.1-2.1"/></svg>',
@@ -131,18 +132,19 @@ const IC = {
 
 // ------------------------------------------------------------------ armazón
 
-function pintar(html, { nav = true } = {}) {
+function pintar(html, { nav = true, mantener = false } = {}) {
+  const y = window.scrollY;
   $app.innerHTML = html;
   $app.classList.toggle('sin-nav', !nav);
   $app.onclick = null; $app.oninput = null; $app.onchange = null; $app.onsubmit = null;
   $nav.hidden = !nav;
   if (nav) pintarNav();
-  window.scrollTo(0, 0);
+  window.scrollTo(0, mantener ? y : 0);  // al refrescar la misma pantalla no se pierde el lugar
 }
 
 function pintarNav() {
   const c = S.ctx, h = location.hash;
-  const items = [];
+  const items = [['#/grupos', 'Inicio', IC.inicio, h === '#/grupos']];
   if (c.qid) {
     items.push([`#/q/${c.qid}`, 'Jornada', IC.jornada, h === `#/q/${c.qid}` || h.startsWith(`#/q/${c.qid}/p/`)]);
     items.push([`#/q/${c.qid}/tabla`, 'Tabla', IC.tabla, h === `#/q/${c.qid}/tabla`]);
@@ -187,13 +189,14 @@ const RUTAS = [
   [/^#\/q\/(\d+)$/, vistaJornada],
   [/^#\/q\/(\d+)\/tabla$/, vistaTabla],
   [/^#\/q\/(\d+)\/p\/(\d+)$/, vistaPartido],
-  [/^#\/g\/(\d+)\/admin$/, vistaAdmin],
+  [/^#\/g\/(\d+)\/admin(?:\/(\d+))?$/, vistaAdmin],
   [/^#\/g\/(\d+)\/nueva$/, vistaNueva],
   [/^#\/g\/(\d+)\/miembros$/, vistaMiembros],
   [/^#\/super$/, vistaSuper],
   [/^#\/perfil$/, vistaPerfil],
+  [/^#\/grupos$/, () => vistaInicio(true)],
   [/^#\/instalar$/, vistaInstalar],
-  [/^(#\/?)?$/, vistaInicio],
+  [/^(#\/?)?$/, () => vistaInicio(false)],
 ];
 
 async function navegar() {
@@ -219,7 +222,7 @@ function vistaError(e) {
 
 // ------------------------------------------------------------------ inicio y entrada
 
-async function vistaInicio() {
+async function vistaInicio(siempreLista) {
   if (!S.token) {
     return pintar(`<div class="cuerpo" style="padding-top:80px;gap:24px">
       <span class="avatar" style="width:64px;height:64px;border-radius:20px;background:var(--lima);color:var(--fondo);font:italic 800 28px Kanit,sans-serif" aria-hidden="true">QP</span>
@@ -228,14 +231,25 @@ async function vistaInicio() {
   }
   const yo = await api('/yo');
   S.yo = yo.usuario;
-  const conQ = yo.grupos.filter((g) => g.quiniela_actual);
-  if (yo.grupos.length === 1 && conQ.length === 1) return location.replace(`#/q/${conQ[0].quiniela_actual.id}`);
+  const activas = yo.grupos.flatMap((g) => g.quinielas.filter((q) => q.estado !== 'cerrada'));
+  // Al abrir la app: si solo hay una quiniela activa, directo a ella. Desde "Inicio" siempre la lista.
+  if (!siempreLista && activas.length === 1) return location.replace(`#/q/${activas[0].id}`);
   S.ctx = {};
-  pintar(cabecera('Tus grupos', null) + `<div class="cuerpo">
-    ${yo.grupos.length ? yo.grupos.map((g) => `<a class="tarjeta" href="${g.quiniela_actual ? `#/q/${g.quiniela_actual.id}` : `#/g/${g.id}/admin`}" style="color:var(--texto)">
-        <div class="fila-meta"><span>${g.rol === 'participante' ? 'Participante' : g.rol === 'dueno' ? 'Dueño' : 'Co-admin'}</span></div>
-        <b style="font:700 20px 'Space Grotesk',sans-serif">${esc(g.nombre)}</b>
-        <span style="font-size:13px;color:var(--gris)">${g.quiniela_actual ? esc(g.quiniela_actual.nombre) : 'Todavía sin quiniela'}</span></a>`).join('')
+  const ROL = { participante: 'Participante', dueno: 'Dueño', coadmin: 'Co-admin' };
+  const ESTADO = { abierta: ['Abierta', 'var(--suave)'], en_juego: ['En juego', 'var(--vivo)'], cerrada: ['Terminada', 'var(--gris)'] };
+  const tarjetaQ = (q) => {
+    const falta = q.estado !== 'cerrada' && q.mis_picks < q.partidos;
+    return `<a href="#/q/${q.id}" style="display:flex;align-items:center;gap:12px;min-height:56px;padding:10px 12px;border-radius:14px;background:var(--sup2);color:var(--texto)">
+      <span style="flex:1;display:flex;flex-direction:column;gap:2px;min-width:0"><b style="font-size:15px">${esc(q.nombre)}</b>
+        <small style="font-size:12px;color:${falta ? 'var(--oro)' : 'var(--gris)'}">${q.estado === 'cerrada' ? 'Ver resultados' : falta ? `Te faltan ${q.partidos - q.mis_picks} de ${q.partidos} picks` : `Completa · ${q.partidos} partidos`}</small></span>
+      <span style="font-size:12px;font-weight:600;color:${ESTADO[q.estado][1]}">${ESTADO[q.estado][0]}</span>${IC.flecha}</a>`;
+  };
+  pintar(cabecera('Tus quinielas', yo.grupos.length > 1 ? `${yo.grupos.length} grupos` : null) + `<div class="cuerpo">
+    ${yo.grupos.length ? yo.grupos.map((g) => `<section class="tarjeta">
+        <div class="fila-meta"><b style="font:700 18px 'Space Grotesk',sans-serif;color:var(--texto)">${esc(g.nombre)}</b><span>${ROL[g.rol]}</span></div>
+        ${g.quinielas.length ? g.quinielas.map(tarjetaQ).join('') : '<span style="font-size:13px;color:var(--gris)">Todavía sin quiniela</span>'}
+        ${g.rol !== 'participante' ? `<a href="#/g/${g.id}/admin" style="font-size:13px;font-weight:600;min-height:36px;display:flex;align-items:center">Administrar grupo</a>` : ''}
+      </section>`).join('')
       : `<div class="vacio">Aún no estás en ningún grupo. Abre el enlace de invitación que te compartieron.</div>`}
     ${yo.usuario.es_superadmin ? `<a class="boton sec" href="#/super">Panel QuiniPro (súper admin)</a>` : ''}</div>`);
 }
@@ -327,7 +341,7 @@ function botonesLEV(p) {
 }
 
 function pintarJornada(arriba) {
-  const q = S.q, y = window.scrollY;
+  const q = S.q;
   const ligas = [...new Set(q.partidos.map((p) => p.competicion_nombre))].join(' · ');
   const est = q.partidos.find((p) => p.es_estelar);
   const resto = q.partidos.filter((p) => !p.es_estelar);
@@ -335,6 +349,11 @@ function pintarJornada(arriba) {
   const llenos = q.partidos.filter((p) => p.mi_pick).length;
   const pct = Math.round((llenos / Math.max(1, q.partidos.length)) * 100);
   const d = q.mi_desempate || { goles_local: 0, goles_visitante: 0 };
+  const completa = q.estado !== 'cerrada' && llenos === q.partidos.length && q.partidos.some((p) => p.editable)
+    ? `<section class="aviso verde" style="border-color:var(--lima-borde);background:var(--lima-osc);flex-wrap:wrap">
+        <div style="display:flex;flex-direction:column;gap:2px;flex:1;min-width:180px"><b style="color:var(--lima)">¡Quiniela completa!</b>
+          <span style="color:#B5C98A">Ya quedó guardada. Puedes salir; si cambias de opinión, edítala antes del pitazo.</span></div>
+        <a class="boton sec" href="#/q/${q.id}/tabla" style="width:auto;min-height:40px">Ver tabla</a></section>` : '';
 
   let banner = '';
   if (q.estado === 'cerrada') banner = `<a class="aviso verde" href="#/q/${q.id}/tabla"><b>Quiniela terminada</b><span style="margin-left:auto;color:var(--lima)">Ver tabla</span></a>`;
@@ -374,10 +393,10 @@ function pintarJornada(arriba) {
     ${instalar}${banner}
     <div class="progreso"><div class="t"><span style="color:var(--gris)">Tu quiniela</span><b>${llenos} de ${q.partidos.length} llenos</b></div>
       <div class="barra"><div style="width:${pct}%"></div></div></div>
-    ${estelarHTML}${tarjetas}
-    <p class="nota">Se guarda solo. Puedes cambiar un pick hasta el pitazo.</p></div>`);
+    ${completa}${estelarHTML}${tarjetas}
+    <a class="boton" href="#/grupos" style="margin-top:6px">${llenos === q.partidos.length || q.estado === 'cerrada' ? 'Listo' : 'Listo por ahora'}</a>
+    <p class="nota">Tus picks se guardan solos al tocarlos. Puedes cambiarlos hasta el pitazo de cada partido.</p></div>`, { mantener: !arriba });
   $app.onclick = clickJornada;
-  if (!arriba) window.scrollTo(0, y);
 }
 
 let tDesempate;
@@ -504,15 +523,17 @@ async function vistaPartido(qid, pid) {
 
 // ------------------------------------------------------------------ admin del grupo
 
-async function vistaAdmin(gid) {
+async function vistaAdmin(gid, qidSel) {
   await asegurarYo();
   const g = await api('/grupos/' + gid);
   if (!g.es_admin) return location.replace('#/');
-  const q = g.quinielas[0];
+  const q = g.quinielas.find((x) => x.id === +qidSel) || g.quinielas.find((x) => x.estado !== 'cerrada') || g.quinielas[0];
+  const puedeBorrar = g.rol === 'dueno' || S.yo.es_superadmin;
   S.ctx = { qid: q ? q.id : null, gid: +gid, admin: true, grupo: g.nombre };
   let pagos = q ? await api(`/quinielas/${q.id}/pagos`) : [];
   let filtro = pagos.some((p) => !p.pagado) ? 'pend' : 'todos', busca = '';
   const invitacion = `${location.origin}/#/unirse/${g.codigo_invitacion}`;
+  let primeraA = true;
 
   const pintarA = () => {
     const nPag = pagos.filter((p) => p.pagado).length, nPend = pagos.length - nPag;
@@ -527,6 +548,8 @@ async function vistaAdmin(gid) {
         <div class="botones"><button class="boton sec" data-acc="invitar" type="button">${IC.enlace}Copiar invitación</button>
           <a class="boton" href="#/g/${gid}/nueva">${IC.mas}Armar ${q ? 'siguiente' : 'quiniela'}</a></div>
       </section>
+      ${g.quinielas.length > 1 ? `<span class="titulo-sec">Quinielas del grupo</span><div style="display:flex;gap:8px;flex-wrap:wrap">
+        ${g.quinielas.map((x) => `<a class="chip" href="#/g/${gid}/admin/${x.id}" style="min-height:40px;display:inline-flex;align-items:center;border:1px solid ${x.id === q.id ? 'var(--lima)' : 'var(--linea2)'};color:${x.id === q.id ? 'var(--lima)' : 'var(--suave)'}">${esc(x.nombre)}${x.estado === 'cerrada' ? ' · terminada' : ''}</a>`).join('')}</div>` : ''}
       <div class="botones"><a class="boton sec" href="#/g/${gid}/miembros">Miembros y roles (${g.miembros})</a>
         ${S.yo.es_superadmin ? `<a class="boton sec" href="#/super">Panel súper admin</a>` : ''}</div>
       ${q ? `<section aria-label="Pagos" style="display:flex;flex-direction:column;gap:10px">
@@ -542,7 +565,12 @@ async function vistaAdmin(gid) {
         ${filtro === 'pend' && nPend > 1 ? `<button class="boton borde" type="button" data-acc="todos">Marcar los ${nPend} como pagados</button>` : ''}
       </section>` : ''}
       <button class="boton sec" type="button" data-acc="regenerar" style="margin-top:8px">Cambiar enlace de invitación</button>
-      <p class="nota">Si cambias el enlace, el anterior deja de funcionar (útil si se compartió de más).</p></div>`);
+      <p class="nota">Si cambias el enlace, el anterior deja de funcionar (útil si se compartió de más).</p>
+      ${puedeBorrar ? `<span class="titulo-sec" style="margin-top:12px">Zona de borrado</span>
+        ${q ? `<button class="boton sec" type="button" data-acc="borrar-q" style="color:var(--baja)">Borrar la quiniela “${esc(q.nombre)}”</button>` : ''}
+        <button class="boton sec" type="button" data-acc="borrar-g" style="color:var(--baja)">Borrar el grupo completo</button>
+        <p class="nota">Borrar no se puede deshacer: se pierden picks, tablas y pagos.</p>` : ''}</div>`, { mantener: !primeraA });
+    primeraA = false;
     const b = document.getElementById('b');
     if (b && busca) { b.focus(); b.setSelectionRange(busca.length, busca.length); }
     $app.onclick = clickA;
@@ -563,6 +591,14 @@ async function vistaAdmin(gid) {
         pagos = await api(`/quinielas/${q.id}/pagos`); filtro = 'todos'; pintarA();
       } else if (b.dataset.acc === 'invitar') {
         await copiar(invitacion, `Únete a ${g.nombre} en QuiniPro`);
+      } else if (b.dataset.acc === 'borrar-q') {
+        if (!confirmado(b)) return;
+        await api(`/quinielas/${q.id}`, { metodo: 'DELETE' });
+        aviso('Quiniela borrada.'); location.hash = `#/g/${gid}/admin`; if (!qidSel) vistaAdmin(gid);
+      } else if (b.dataset.acc === 'borrar-g') {
+        if (!confirmado(b)) return;
+        await api(`/grupos/${gid}`, { metodo: 'DELETE' });
+        aviso('Grupo borrado.'); location.hash = '#/grupos';
       } else if (b.dataset.acc === 'regenerar') {
         if (!confirmado(b)) return;
         const r = await api(`/grupos/${gid}/invitacion`, { metodo: 'POST' });
@@ -588,6 +624,7 @@ async function vistaNueva(gid) {
   let estelar = null;
   const hoy = new Intl.DateTimeFormat('es-MX', { timeZone: TZ, day: '2-digit', month: '2-digit' }).format(new Date());
   let nombre = `Jornada ${hoy}`, cuota = '';
+  let primera = true;
 
   const pintarN = () => {
     const vis = partidos.filter((p) => elegidas.has(p.competicion));
@@ -605,7 +642,8 @@ async function vistaNueva(gid) {
           <button type="button" class="estrella" data-est="${p.id}" aria-pressed="${estelar === p.id}" aria-label="Hacer estelar ${esc(p.local)} vs ${esc(p.visitante)}">${IC.estrellaBtn}</button></label>`).join('')}`).join('')}
       <div style="position:sticky;bottom:calc(76px + env(safe-area-inset-bottom));background:var(--fondo);padding:10px 0;display:flex;flex-direction:column;gap:8px">
         <span style="font-size:13px;color:var(--gris)">${sel.size} partido${sel.size === 1 ? '' : 's'} · estelar: ${est ? esc(`${est.local} vs ${est.visitante}`) : '<b style="color:var(--oro)">toca la estrella de uno</b>'}</span>
-        <button class="boton" type="button" data-acc="crear" ${sel.size && est ? '' : 'disabled'}>Crear quiniela</button></div></div>`);
+        <button class="boton" type="button" data-acc="crear" ${sel.size && est ? '' : 'disabled'}>Crear quiniela</button></div></div>`, { mantener: !primera });
+    primera = false;
     $app.onclick = clickN; $app.onchange = cambioN; $app.oninput = (e) => { if (e.target.id === 'nom') nombre = e.target.value; if (e.target.id === 'cuota') cuota = e.target.value; };
   };
   const cambioN = (e) => {
@@ -762,7 +800,8 @@ async function vistaSuper() {
         <button class="boton" type="button" data-guardar="${p.id}" style="width:auto">Guardar</button>
         <button class="boton sec" type="button" data-anular="${p.id}" style="width:auto">Anular</button></div></section>`).join('') || '<p class="nota" style="text-align:left">Nada por revisar.</p>'}
     <span class="titulo-sec">Grupos (${grupos.length})</span>
-    <ul class="lista">${grupos.map((g) => `<li style="padding:10px"><span class="nom"><a href="#/g/${g.id}/admin" style="color:var(--texto)">${esc(g.nombre)}</a><br><small style="color:var(--gris)">${g.miembros} miembros · dueño: ${esc(g.dueno || '—')}</small></span></li>`).join('') || '<li><span class="nom" style="color:var(--gris)">Sin grupos</span></li>'}</ul>
+    <ul class="lista">${grupos.map((g) => `<li style="padding:10px"><span class="nom"><a href="#/g/${g.id}/admin" style="color:var(--texto)">${esc(g.nombre)}</a><br><small style="color:var(--gris)">${g.miembros} miembros · dueño: ${esc(g.dueno || '—')}</small></span>
+      <button class="boton sec" type="button" data-borrar-g="${g.id}" style="width:auto;min-height:40px;font-size:13px;color:var(--baja)">Borrar</button></li>`).join('') || '<li><span class="nom" style="color:var(--gris)">Sin grupos</span></li>'}</ul>
     <span class="titulo-sec">Enlaces para crear grupo</span>
     <ul class="lista">${codigos.map((c) => `<li style="padding:10px"><span class="nom">${esc(c.nota || 'Sin nota')}<br><small style="color:var(--gris)">${c.usado_por ? 'Usado por ' + esc(c.usado_por) : 'Sin usar'}</small></span>
       ${c.usado_por ? '' : `<button class="boton sec" type="button" data-copiar="${esc(c.codigo)}" style="width:auto;min-height:40px;font-size:13px">Copiar</button>`}</li>`).join('') || '<li><span class="nom" style="color:var(--gris)">Aún no generas ninguno</span></li>'}</ul></div>`);
@@ -774,6 +813,10 @@ async function vistaSuper() {
         const r = await api('/super/codigos', { metodo: 'POST', datos: { nota: document.getElementById('nota').value || null } });
         await copiar(`${location.origin}/#/crear/${r.codigo}`, 'Crea tu grupo en QuiniPro');
         vistaSuper();
+      } else if (b.dataset.borrarG) {
+        if (!confirmado(b)) return;
+        await api(`/grupos/${b.dataset.borrarG}`, { metodo: 'DELETE' });
+        aviso('Grupo borrado con todas sus quinielas.'); vistaSuper();
       } else if (b.dataset.copiar) await copiar(`${location.origin}/#/crear/${b.dataset.copiar}`, 'Crea tu grupo en QuiniPro');
       else if (b.dataset.guardar) {
         const t = b.closest('section');
