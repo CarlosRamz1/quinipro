@@ -152,7 +152,7 @@ function pintarNav() {
   if (c.gid && c.admin) items.push([`#/g/${c.gid}/admin`, 'Admin', IC.admin, h.startsWith(`#/g/${c.gid}/`)]);
   items.push(['#/perfil', 'Perfil', IC.perfil, h === '#/perfil' || h === '#/super']);
   document.getElementById('nav-in').innerHTML = items.map(([href, t, ic, act]) =>
-    `<a href="${href}"${act ? ' aria-current="page"' : ''}>${ic}${t}</a>`).join('');
+    `<a href="${href}" aria-label="${t}"${act ? ' aria-current="page"' : ''}>${ic}<span>${t}</span></a>`).join('');
 }
 
 function cabecera(titulo, sub, { grupo, avatar = true, extra = '' } = {}) {
@@ -640,7 +640,7 @@ async function vistaNueva(gid) {
         <label class="check"><input type="checkbox" data-sel="${p.id}" ${sel.has(p.id) ? 'checked' : ''}>
           <span class="info"><b>${esc(p.local)} vs ${esc(p.visitante)}</b><small>${cuando(p.inicio_utc)}</small></span>
           <button type="button" class="estrella" data-est="${p.id}" aria-pressed="${estelar === p.id}" aria-label="Hacer estelar ${esc(p.local)} vs ${esc(p.visitante)}">${IC.estrellaBtn}</button></label>`).join('')}`).join('')}
-      <div style="position:sticky;bottom:calc(76px + env(safe-area-inset-bottom));background:var(--fondo);padding:10px 0;display:flex;flex-direction:column;gap:8px">
+      <div style="position:sticky;bottom:calc(84px + env(safe-area-inset-bottom));background:var(--fondo);padding:10px 0;display:flex;flex-direction:column;gap:8px">
         <span style="font-size:13px;color:var(--gris)">${sel.size} partido${sel.size === 1 ? '' : 's'} · estelar: ${est ? esc(`${est.local} vs ${est.visitante}`) : '<b style="color:var(--oro)">toca la estrella de uno</b>'}</span>
         <button class="boton" type="button" data-acc="crear" ${sel.size && est ? '' : 'disabled'}>Crear quiniela</button></div></div>`, { mantener: !primera });
     primera = false;
